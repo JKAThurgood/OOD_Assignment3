@@ -1,0 +1,157 @@
+@startuml
+skinparam packageStyle rectangle
+
+package observer {
+
+    interface Observer<T> {
+        +onUpdate(value : T)
+    }
+
+    interface Subject<T> {
+        +subscribe(observer : Observer<T>)
+        +unsubscribe(observer : Observer<T>)
+        +notifyObservers(value : T)
+    }
+
+    abstract class AbstractSubject<T>
+
+    Subject <|.. AbstractSubject
+    Subject "1" o-- "*" Observer : notifies
+}
+
+package sensor {
+
+    interface RobotSensors {
+        +sonar : Sensor<Double>
+        +vision : Sensor<Color>
+        +temperature : Sensor<Double>
+        +lineLeft : Sensor<Boolean>
+        +lineCenter : Sensor<Boolean>
+        +lineRight : Sensor<Boolean>
+        +collision : Sensor<Boolean>
+    }
+
+    abstract class Sensor<T> {
+        +label : String
+        +mountForward : Double
+        +mountLateral : Double
+        +mountAngle : Double
+        +reading : T
+
+        +worldPose(robotPose : Pose) : Pose
+        +update(env : Environment, robotPose : Pose)
+        #measure(env : Environment, sensorPose : Pose) : T
+    }
+
+    class SonarSensor
+    class VisionSensor
+    class TemperatureSensor
+    class LineSensor
+    class CollisionSensor
+
+    AbstractSubject <|-- Sensor
+
+    Sensor ..> Environment : measures from
+    Sensor ..> Pose : uses
+    Sensor <|-- SonarSensor
+    Sensor <|-- VisionSensor
+    Sensor <|-- TemperatureSensor
+    Sensor <|-- LineSensor
+    Sensor <|-- CollisionSensor
+}
+
+package command {
+
+    interface Command {
+        +execute()
+        +undo()
+    }
+
+    class CommandInvoker {
+        -undoStack : ArrayDeque<Command>
+        -redoStack : ArrayDeque<Command>
+        +run(command)
+        +undo()
+        +redo()
+    }
+
+    interface RobotActuator {
+        +leftTrackVelocity : Double
+        +rightTrackVelocity : Double
+        +setTrackVelocities(left,right)
+    }
+
+    CommandInvoker --> Command : execute/undo/redo
+    Command ..> RobotActuator : receiver
+}
+
+package api {
+
+    interface RobotApi {
+        +sensors : RobotSensors
+        +actuator : RobotActuator
+        +perform(command)
+        +undo()
+        +redo()
+    }
+
+    class DefaultRobotApi
+
+    interface RobotProgram {
+        +name : String
+        +startProgram(robot)
+        +stopProgram(robot)
+    }
+
+    interface ProgramRegistry {
+        +register(program)
+        +programs()
+    }
+
+    class DefaultProgramRegistry
+
+    class StudentPrograms
+
+    RobotApi <|.. DefaultRobotApi
+    RobotProgram ..> Sensor : subscribes
+    RobotProgram ..> Observer : implements/uses
+
+    DefaultRobotApi --> CommandInvoker
+    DefaultRobotApi --> RobotActuator
+    DefaultRobotApi --> RobotSensors
+
+    RobotProgram ..> RobotApi
+    ProgramRegistry --> RobotProgram
+    DefaultProgramRegistry ..|> ProgramRegistry
+
+    StudentPrograms ..> ProgramRegistry
+    StudentPrograms ..> RobotProgram
+}
+
+package model {
+
+    class Robot {
+        +pose : Pose
+        +leftTrackVelocity : Double
+        +rightTrackVelocity : Double
+        +step(dt, env)
+        +updateSensors(env)
+        +stop()
+    }
+
+    Robot ..|> RobotActuator
+    Robot ..|> RobotSensors
+
+    Robot *-- SonarSensor
+    Robot *-- VisionSensor
+    Robot *-- TemperatureSensor
+    Robot *-- LineSensor : left
+    Robot *-- LineSensor : center
+    Robot *-- LineSensor : right
+    Robot *-- CollisionSensor
+}
+
+RobotProgram ..> Observer : subscribes as
+Sensor --> Observer : notify()
+
+@enduml
