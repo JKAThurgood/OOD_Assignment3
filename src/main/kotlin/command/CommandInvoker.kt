@@ -10,20 +10,27 @@ package command
  *
  * Until you implement these, performing a command (from a button or a program) does nothing.
  */
+
 class CommandInvoker {
     private val undoStack = ArrayDeque<Command>()
     private val redoStack = ArrayDeque<Command>()
 
     fun run(command: Command) {
-        // TODO(student)
+        command.execute()
+        undoStack.addLast(command)
+        redoStack.clear()
     }
 
     fun undo() {
-        // TODO(student)
+        val command = undoStack.removeLast()
+        command.undo()
+        redoStack.addLast(command)
     }
 
     fun redo() {
-        // TODO(student)
+        val command = redoStack.removeLast()
+        command.execute()
+        undoStack.addLast(command)
     }
 
     fun canUndo() = undoStack.isNotEmpty()
