@@ -83,6 +83,32 @@ package command {
 
     CommandInvoker --> Command : execute/undo/redo
     Command ..> RobotActuator : receiver
+
+        class SetTrackVelocityCommand {
+        -receiver : RobotActuator
+        -left : Double
+        -right : Double
+        -prevLeft : Double
+        -prevRight : Double
+
+        +execute()
+        +undo()
+    }
+
+    class StopCommand {
+        -receiver : RobotActuator
+        -prevLeft : Double
+        -prevRight : Double
+
+        +execute()
+        +undo()
+    }
+
+    Command <|.. SetTrackVelocityCommand
+    Command <|.. StopCommand
+
+    SetTrackVelocityCommand --> RobotActuator
+    StopCommand --> RobotActuator
 }
 
 package api {
@@ -154,4 +180,85 @@ package model {
 RobotProgram ..> Observer : subscribes as
 Sensor --> Observer : notify()
 
+
+
+package telemetry {
+
+    class TelemetryPanel {
+        -sonarObserver : Observer<Double>
+        -temperatureObserver : Observer<Double>
+        -visionObserver : Observer<Color>
+        -leftLineObserver : Observer<Boolean>
+        -centerLineObserver : Observer<Boolean>
+        -rightLineObserver : Observer<Boolean>
+        -collisionObserver : Observer<Boolean>
+
+        +connect(sensors : RobotSensors)
+        +disconnect(sensors : RobotSensors)
+        -updateDisplay()
+    }
+
+    TelemetryPanel ..> RobotSensors
+
+    TelemetryPanel ..> Observer
+    Sensor --> TelemetryPanel : readings
+}
+
+package api {
+
+    class LineFollowerProgram {
+        -robot : RobotApi
+        -centerObserver : Observer<Boolean>
+        -leftObserver : Observer<Boolean>
+        -rightObserver : Observer<Boolean>
+
+        +name : String
+        +startProgram(robot)
+        +stopProgram(robot)
+    }
+
+    class TemperatureSeekProgram {
+        -robot : RobotApi
+        -temperatureObserver : Observer<Double>
+
+        +name : String
+        +startProgram(robot)
+        +stopProgram(robot)
+    }
+
+    class BallSeekProgram {
+        -robot : RobotApi
+        -visionObserver : Observer<Color>
+        -collisionObserver : Observer<Boolean>
+
+        +name : String
+        +startProgram(robot)
+        +stopProgram(robot)
+    }
+
+    RobotProgram <|.. LineFollowerProgram
+    RobotProgram <|.. TemperatureSeekProgram
+    RobotProgram <|.. BallSeekProgram
+
+    LineFollowerProgram ..> RobotApi
+    TemperatureSeekProgram ..> RobotApi
+    BallSeekProgram ..> RobotApi
+
+    LineFollowerProgram ..> Observer
+    TemperatureSeekProgram ..> Observer
+    BallSeekProgram ..> Observer
+
+    LineFollowerProgram ..> SetTrackVelocityCommand
+    LineFollowerProgram ..> StopCommand
+
+    TemperatureSeekProgram ..> SetTrackVelocityCommand
+    TemperatureSeekProgram ..> StopCommand
+
+    BallSeekProgram ..> SetTrackVelocityCommand
+    BallSeekProgram ..> StopCommand
+
+    StudentPrograms ..> LineFollowerProgram
+    StudentPrograms ..> TemperatureSeekProgram
+    StudentPrograms ..> BallSeekProgram
+}
 @enduml
