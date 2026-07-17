@@ -5,19 +5,14 @@ plugins {
 }
 
 group = "org.example"
+
 version = "1.0-SNAPSHOT"
 
-repositories {
-    mavenCentral()
-}
+repositories { mavenCentral() }
 
-dependencies {
-    testImplementation(kotlin("test"))
-}
+dependencies { testImplementation(kotlin("test")) }
 
-kotlin {
-    jvmToolchain(25)
-}
+kotlin { jvmToolchain(25) }
 
 javafx {
     version = "25"
@@ -30,6 +25,4 @@ application {
     mainClass.set("MainKt")
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
+tasks.test { useJUnitPlatform() }
