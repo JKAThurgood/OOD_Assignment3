@@ -16,8 +16,9 @@ package observer {
     abstract class AbstractSubject<T>
 
     Subject <|.. AbstractSubject
-    Subject "1" o-- "*" Observer : notifies
+    AbstractSubject "1" o-- "*" Observer : notifies
 }
+
 
 package sensor {
 
@@ -49,16 +50,18 @@ package sensor {
     class LineSensor
     class CollisionSensor
 
-    AbstractSubject <|-- Sensor
+    Sensor --|> AbstractSubject
 
     Sensor ..> Environment : measures from
     Sensor ..> Pose : uses
+
     Sensor <|-- SonarSensor
     Sensor <|-- VisionSensor
     Sensor <|-- TemperatureSensor
     Sensor <|-- LineSensor
     Sensor <|-- CollisionSensor
 }
+
 
 package command {
 
@@ -67,67 +70,53 @@ package command {
         +undo()
     }
 
-    class CommandInvoker {
-        -undoStack : ArrayDeque<Command>
-        -redoStack : ArrayDeque<Command>
-        +run(command)
-        +undo()
-        +redo()
-    }
-
     interface RobotActuator {
         +leftTrackVelocity : Double
         +rightTrackVelocity : Double
         +setTrackVelocities(left,right)
     }
 
-    CommandInvoker --> Command : execute/undo/redo
-    Command ..> RobotActuator : receiver
+    class CommandInvoker {
+        -undoStack : ArrayDeque<Command>
+        -redoStack : ArrayDeque<Command>
 
-        class SetTrackVelocityCommand {
+        +run(command)
+        +undo()
+        +redo()
+    }
+
+    class SetTrackVelocityCommand {
         -receiver : RobotActuator
         -left : Double
         -right : Double
-        -prevLeft : Double
-        -prevRight : Double
+        -previousLeft : Double
+        -previousRight : Double
 
         +execute()
         +undo()
     }
 
-    class StopCommand {
-        -receiver : RobotActuator
-        -prevLeft : Double
-        -prevRight : Double
+    CommandInvoker --> Command : executes
 
-        +execute()
-        +undo()
-    }
+    Command ..> RobotActuator : receiver
 
     Command <|.. SetTrackVelocityCommand
-    Command <|.. StopCommand
-
     SetTrackVelocityCommand --> RobotActuator
-    StopCommand --> RobotActuator
 }
+
 
 package api {
 
     interface RobotApi {
         +sensors : RobotSensors
         +actuator : RobotActuator
+
         +perform(command)
         +undo()
         +redo()
     }
 
     class DefaultRobotApi
-
-    interface RobotProgram {
-        +name : String
-        +startProgram(robot)
-        +stopProgram(robot)
-    }
 
     interface ProgramRegistry {
         +register(program)
@@ -136,30 +125,107 @@ package api {
 
     class DefaultProgramRegistry
 
-    class StudentPrograms
+    class StudentPrograms {
+        +registerAll(registry)
+    }
 
     RobotApi <|.. DefaultRobotApi
-    RobotProgram ..> Sensor : subscribes
-    RobotProgram ..> Observer : implements/uses
 
     DefaultRobotApi --> CommandInvoker
     DefaultRobotApi --> RobotActuator
     DefaultRobotApi --> RobotSensors
 
-    RobotProgram ..> RobotApi
-    ProgramRegistry --> RobotProgram
+    ProgramRegistry --> program.RobotProgram
+
     DefaultProgramRegistry ..|> ProgramRegistry
 
     StudentPrograms ..> ProgramRegistry
-    StudentPrograms ..> RobotProgram
+    StudentPrograms ..> program.RobotProgram
 }
+
+
+package program {
+
+    interface RobotProgram {
+        +name : String
+
+        +startProgram(robot : api.RobotApi)
+        +stopProgram(robot : api.RobotApi)
+    }
+
+
+    class LineFollowerProgram {
+
+        -robot : api.RobotApi
+
+        -leftObserver : observer.Observer<Boolean>
+        -centerObserver : observer.Observer<Boolean>
+        -rightObserver : observer.Observer<Boolean>
+
+        +name : String
+
+        +startProgram(robot : api.RobotApi)
+        +stopProgram(robot : api.RobotApi)
+    }
+
+
+    class TemperatureSeekProgram {
+
+        -robot : api.RobotApi
+
+        -temperatureObserver : observer.Observer<Double>
+
+        +name : String
+
+        +startProgram(robot : api.RobotApi)
+        +stopProgram(robot : api.RobotApi)
+    }
+
+
+    class BallSeekProgram {
+
+        -robot : api.RobotApi
+
+        -visionObserver : observer.Observer<Color>
+        -collisionObserver : observer.Observer<Boolean>
+
+        +name : String
+
+        +startProgram(robot : api.RobotApi)
+        +stopProgram(robot : api.RobotApi)
+    }
+
+
+    RobotProgram <|.. LineFollowerProgram
+    RobotProgram <|.. TemperatureSeekProgram
+    RobotProgram <|.. BallSeekProgram
+
+
+    LineFollowerProgram ..> api.RobotApi : controls through
+    TemperatureSeekProgram ..> api.RobotApi : controls through
+    BallSeekProgram ..> api.RobotApi : controls through
+
+
+    LineFollowerProgram ..> observer.Observer : subscribes
+    TemperatureSeekProgram ..> observer.Observer : subscribes
+    BallSeekProgram ..> observer.Observer : subscribes
+
+
+    program.LineFollowerProgram ..> command.SetTrackVelocityCommand : creates
+    program.TemperatureSeekProgram ..> command.SetTrackVelocityCommand : creates
+    program.BallSeekProgram ..> command.SetTrackVelocityCommand : creates
+}
+
 
 package model {
 
     class Robot {
+
         +pose : Pose
+
         +leftTrackVelocity : Double
         +rightTrackVelocity : Double
+
         +step(dt, env)
         +updateSensors(env)
         +stop()
@@ -168,97 +234,127 @@ package model {
     Robot ..|> RobotActuator
     Robot ..|> RobotSensors
 
+
     Robot *-- SonarSensor
     Robot *-- VisionSensor
     Robot *-- TemperatureSensor
+
     Robot *-- LineSensor : left
     Robot *-- LineSensor : center
     Robot *-- LineSensor : right
+
     Robot *-- CollisionSensor
 }
 
-RobotProgram ..> Observer : subscribes as
-Sensor --> Observer : notify()
+
+package ui {
+
+    class DriveSettings {
+
+        -speed : Double
+        -turn : Double
+
+        +setSpeed(value : Double)
+        +setTurn(value : Double)
+    }
 
 
+    class ControlPanel {
 
-package telemetry {
+        -api : RobotApi
+        -driveSettings : DriveSettings
+
+        +drive(left,right)
+    }
+
+
+    class ProgramPanel {
+
+        -programRunner : ProgramRunner
+    }
+
 
     class TelemetryPanel {
+
         -sonarObserver : Observer<Double>
         -temperatureObserver : Observer<Double>
         -visionObserver : Observer<Color>
+
         -leftLineObserver : Observer<Boolean>
         -centerLineObserver : Observer<Boolean>
         -rightLineObserver : Observer<Boolean>
+
         -collisionObserver : Observer<Boolean>
 
-        +connect(sensors : RobotSensors)
-        +disconnect(sensors : RobotSensors)
-        -updateDisplay()
+        +bindTo(robot : Robot)
+
+        +connect()
+        +disconnect()
     }
+
+
+    DriveSettings --|> AbstractSubject
+
+    ControlPanel --> RobotApi
+    ControlPanel --> DriveSettings
 
     TelemetryPanel ..> RobotSensors
-
     TelemetryPanel ..> Observer
-    Sensor --> TelemetryPanel : readings
 }
 
-package api {
 
-    class LineFollowerProgram {
-        -robot : RobotApi
-        -centerObserver : Observer<Boolean>
-        -leftObserver : Observer<Boolean>
-        -rightObserver : Observer<Boolean>
+package sim {
 
-        +name : String
-        +startProgram(robot)
-        +stopProgram(robot)
+    class Simulation {
+
+        +robot : Robot
+
+        +step(dt)
+        +loadEnvironment(environment)
+        +resetRobot()
     }
 
-    class TemperatureSeekProgram {
-        -robot : RobotApi
-        -temperatureObserver : Observer<Double>
 
-        +name : String
-        +startProgram(robot)
-        +stopProgram(robot)
+    class ProgramRunner {
+
+        +run(program)
+        +stop()
     }
 
-    class BallSeekProgram {
-        -robot : RobotApi
-        -visionObserver : Observer<Color>
-        -collisionObserver : Observer<Boolean>
 
-        +name : String
-        +startProgram(robot)
-        +stopProgram(robot)
+    class EnvironmentCatalog {
+
+        +all()
     }
 
-    RobotProgram <|.. LineFollowerProgram
-    RobotProgram <|.. TemperatureSeekProgram
-    RobotProgram <|.. BallSeekProgram
 
-    LineFollowerProgram ..> RobotApi
-    TemperatureSeekProgram ..> RobotApi
-    BallSeekProgram ..> RobotApi
+    ProgramRunner --> RobotProgram
+    ProgramRunner --> RobotApi
 
-    LineFollowerProgram ..> Observer
-    TemperatureSeekProgram ..> Observer
-    BallSeekProgram ..> Observer
-
-    LineFollowerProgram ..> SetTrackVelocityCommand
-    LineFollowerProgram ..> StopCommand
-
-    TemperatureSeekProgram ..> SetTrackVelocityCommand
-    TemperatureSeekProgram ..> StopCommand
-
-    BallSeekProgram ..> SetTrackVelocityCommand
-    BallSeekProgram ..> StopCommand
-
-    StudentPrograms ..> LineFollowerProgram
-    StudentPrograms ..> TemperatureSeekProgram
-    StudentPrograms ..> BallSeekProgram
+    Simulation --> Robot
+    Simulation --> EnvironmentCatalog
 }
+
+
+package app {
+
+    class RobotSimulationApp {
+
+        -simulation : Simulation
+        -api : RobotApi
+        -invoker : CommandInvoker
+
+        +start(stage)
+        +installKeyboardControls(scene)
+    }
+
+
+    RobotSimulationApp --> Simulation
+    RobotSimulationApp --> RobotApi
+    RobotSimulationApp --> CommandInvoker
+}
+
+
+Sensor --> Observer : notifies
+
 @enduml
