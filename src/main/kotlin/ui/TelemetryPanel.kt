@@ -39,14 +39,6 @@ class TelemetryPanel : VBox(6.0) {
     /**
      * Subscribe observers to the given robot's sensors so the labels update live. Called whenever
      * the robot is (re)created — on startup, environment change, and reset.
-     *
-     * TODO(student): subscribe an observer to each sensor and update the matching label, e.g.: You
-     * can change the text of one of the Labels above by modifying the `text` property, e.g:
-     * `vision.text = "The new text to display"`
-     *
-     * The labels (`sonar`, `temperature`, `vision`, `line`, `collision`) are ready to write to.
-     * Until you do this, they stay "—". (This depends on your Observer pattern working — see
-     * AbstractSubject.)
      */
     fun bindTo(robot: Robot) {
         robot.sonar.subscribe { value -> sonar.text = "%.2f".format(value) }

@@ -1,6 +1,7 @@
 package ui
 
 import api.RobotApi
+import command.SetTrackVelocityCommand
 import environment.Environment
 import javafx.geometry.Insets
 import javafx.geometry.Pos
@@ -63,10 +64,13 @@ class ControlPanel(
     }
 
     private fun drive(left: Double, right: Double) {
-        // TODO(student): build one of YOUR Command classes for this action and run it via the API:
-        //     api.perform(MySetVelocityCommand(api.actuator, left, right))
-        // `left` / `right` are the intended track velocities for the button that was pressed
-        // (e.g. Forward = (speed, speed), Left = (turn, -turn)). Design whatever command set you like.
+        api.perform(
+            SetTrackVelocityCommand(
+                api.actuator,
+                left,
+                right
+            )
+        )
     }
 
     private fun button(text: String, action: () -> Unit) =
@@ -74,7 +78,8 @@ class ControlPanel(
 
     private fun caption(text: String) = Label(text).apply { style = "-fx-text-fill: #c9d1d9;" }
 
-    private fun spacer() = javafx.scene.layout.Region().apply { HBox.setHgrow(this, javafx.scene.layout.Priority.ALWAYS) }
+    private fun spacer() =
+        javafx.scene.layout.Region().apply { HBox.setHgrow(this, javafx.scene.layout.Priority.ALWAYS) }
 
     private fun listCell() = object : javafx.scene.control.ListCell<Environment>() {
         override fun updateItem(item: Environment?, empty: Boolean) {

@@ -4,10 +4,12 @@ import api.DefaultProgramRegistry
 import api.DefaultRobotApi
 import api.StudentPrograms
 import command.CommandInvoker
+import command.SetTrackVelocityCommand
 import javafx.animation.AnimationTimer
 import javafx.application.Application
 import javafx.scene.Scene
 import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
@@ -44,6 +46,7 @@ class RobotSimulationApp : Application() {
         StudentPrograms.registerAll(registry)
 
         canvas = SimulationCanvas(simulation, programRunner, worldWidth, worldHeight)
+        canvas.isFocusTraversable = true
         telemetry.bindTo(simulation.robot)
 
         val controlPanel = ControlPanel(
@@ -65,6 +68,7 @@ class RobotSimulationApp : Application() {
         stage.title = "Skid-Steer Robot Simulation"
         stage.scene = scene
         stage.show()
+        canvas.requestFocus()
 
         object : AnimationTimer() {
             override fun handle(now: Long) {
@@ -83,22 +87,46 @@ class RobotSimulationApp : Application() {
     private fun installKeyboardControls(scene: Scene) {
         val speed = 120.0
         val turn = 90.0
-        scene.setOnKeyPressed { e ->
+        scene.addEventFilter(KeyEvent.KEY_PRESSED) { e ->
             when (e.code) {
-                KeyCode.UP -> drive(speed, speed)
-                KeyCode.DOWN -> drive(-speed, -speed)
-                KeyCode.LEFT -> drive(turn, -turn)
-                KeyCode.RIGHT -> drive(-turn, turn)
-                KeyCode.SPACE -> drive(0.0, 0.0)
+                KeyCode.UP -> {
+                    drive(speed, speed)
+                    e.consume()
+                }
+
+                KeyCode.DOWN -> {
+                    drive(-speed, -speed)
+                    e.consume()
+                }
+
+                KeyCode.LEFT -> {
+                    drive(turn, -turn)
+                    e.consume()
+                }
+
+                KeyCode.RIGHT -> {
+                    drive(-turn, turn)
+                    e.consume()
+                }
+
+                KeyCode.SPACE -> {
+                    drive(0.0, 0.0)
+                    e.consume()
+                }
+
                 else -> {}
             }
         }
     }
 
     private fun drive(left: Double, right: Double) {
-        // TODO(student): keyboard control — build one of your commands and run it via the API:
-        //     api.perform(MySetVelocityCommand(api.actuator, left, right))
-        // (Same idea as the on-screen buttons in ControlPanel.)
+        api.perform(
+            SetTrackVelocityCommand(
+                api.actuator,
+                left,
+                right
+            )
+        )
     }
 
     private fun switchEnvironment(envClass: Class<*>) {
