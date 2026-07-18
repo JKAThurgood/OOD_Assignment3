@@ -1,7 +1,7 @@
 package sim
 
 import api.RobotApi
-import api.RobotProgram
+import program.RobotProgram
 
 /**
  * Runs one registered [RobotProgram] at a time. Running a program calls its [RobotProgram.startProgram]

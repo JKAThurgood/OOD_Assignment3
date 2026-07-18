@@ -8,15 +8,19 @@ import command.SetTrackVelocityCommand
 import javafx.animation.AnimationTimer
 import javafx.application.Application
 import javafx.scene.Scene
+import javafx.scene.control.TextInputControl
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
+import observer.Observer
 import sim.EnvironmentCatalog
 import sim.ProgramRunner
 import sim.Simulation
 import ui.ControlPanel
+import ui.DriveConfig
+import ui.DriveSettings
 import ui.ProgramPanel
 import ui.SimulationCanvas
 import ui.TelemetryPanel
@@ -26,6 +30,10 @@ class RobotSimulationApp : Application() {
 
     private val worldWidth = 880.0
     private val worldHeight = 600.0
+    private val driveSettings = DriveSettings()
+
+    private var currentSpeed = driveSettings.speed
+    private var currentTurn = driveSettings.turn
 
     private val simulation = Simulation(EnvironmentCatalog.all().first())
     private val invoker = CommandInvoker()
@@ -51,6 +59,7 @@ class RobotSimulationApp : Application() {
 
         val controlPanel = ControlPanel(
             api = api,
+            driveSettings = driveSettings,
             environments = EnvironmentCatalog.all(),
             onSelectEnvironment = { env -> switchEnvironment(env.javaClass) },
             onReset = { resetRobot() },
@@ -64,6 +73,10 @@ class RobotSimulationApp : Application() {
         }
 
         val scene = Scene(root)
+        driveSettings.subscribe { config ->
+            currentSpeed = config.speed
+            currentTurn = config.turn
+        }
         installKeyboardControls(scene)
         stage.title = "Skid-Steer Robot Simulation"
         stage.scene = scene
@@ -85,27 +98,36 @@ class RobotSimulationApp : Application() {
     }
 
     private fun installKeyboardControls(scene: Scene) {
-        val speed = 120.0
-        val turn = 90.0
         scene.addEventFilter(KeyEvent.KEY_PRESSED) { e ->
+
+            if (e.code == KeyCode.ESCAPE) {
+                scene.root.requestFocus()
+                e.consume()
+                return@addEventFilter
+            }
+
+            if (e.target is TextInputControl) {
+                return@addEventFilter
+            }
+
             when (e.code) {
                 KeyCode.UP -> {
-                    drive(speed, speed)
+                    drive(currentSpeed, currentSpeed)
                     e.consume()
                 }
 
                 KeyCode.DOWN -> {
-                    drive(-speed, -speed)
+                    drive(-currentSpeed, -currentSpeed)
                     e.consume()
                 }
 
                 KeyCode.LEFT -> {
-                    drive(turn, -turn)
+                    drive(currentTurn, -currentTurn)
                     e.consume()
                 }
 
                 KeyCode.RIGHT -> {
-                    drive(-turn, turn)
+                    drive(-currentTurn, currentTurn)
                     e.consume()
                 }
 

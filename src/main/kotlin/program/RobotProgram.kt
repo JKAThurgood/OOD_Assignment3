@@ -1,4 +1,6 @@
-package api
+package program
+
+import api.RobotApi
 
 /**
  * A program that drives the robot. Students implement this.
