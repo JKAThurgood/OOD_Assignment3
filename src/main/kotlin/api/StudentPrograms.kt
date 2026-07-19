@@ -10,8 +10,8 @@ import program.TemperatureSeekProgram
  */
 object StudentPrograms {
     fun registerAll(registry: ProgramRegistry) {
-        registry.register(LineFollowerProgram())
         registry.register(TemperatureSeekProgram())
         registry.register(BallSeekProgram())
+        registry.register(LineFollowerProgram())
     }
 }

@@ -4,10 +4,17 @@ import api.RobotApi
 import command.SetTrackVelocityCommand
 import javafx.scene.paint.Color
 import observer.Observer
-import kotlin.random.Random
 
 /**
- * Autonomous program that searches for and drives to a red ball.
+ * Searches for a red ball.
+ *
+ * Behavior:
+ * 1. Spin left looking for the ball.
+ * 2. If no ball is found after a short scan, drive forward.
+ * 3. If collision occurs or sonar reports an immediate obstacle,
+ *    return to discovery mode (searching).
+ * 4. If the ball is seen, drive straight toward it.
+ * 5. If collision occurs while approaching, assume we reached the ball.
  */
 class BallSeekProgram : RobotProgram {
 
@@ -16,28 +23,25 @@ class BallSeekProgram : RobotProgram {
     private var robot: RobotApi? = null
 
     private enum class State {
-        SEARCHING,      // Full 360 scan
-        EXPLORE_SPIN,   // Spinning a random amount
-        EXPLORING,      // Driving forward for up to 2 seconds
-        APPROACHING,    // Ball detected, moving towards it
-        STOPPED         // Ball reached
+        SEARCHING,
+        EXPLORING,
+        APPROACHING,
+        STOPPED
     }
 
     private var state = State.SEARCHING
 
-    // Ticks tracking
-    private var spinTicks = 0
-    private val maxSpinTicks = 200 // Ticks required for a full 360 scan
+    private var searchTicks = 0
+    private val maxSearchTicks = 300
 
-    private var exploreTicks = 0
-    private var currentExploreSpinLimit = 0
-
-    private val maxExploreTicks = 600
-
-    // Movement speeds
-    private val spinSpeed = 90.0
+    private val searchSpinSpeed = 90.0
     private val exploreSpeed = 120.0
     private val approachSpeed = 140.0
+
+    /**
+     * Treat anything extremely close as blocked.
+     */
+    private val blockedDistance = 5.0
 
     private fun isRed(color: Color): Boolean {
         return color.red > 0.7 &&
@@ -47,6 +51,7 @@ class BallSeekProgram : RobotProgram {
 
     private fun drive(left: Double, right: Double) {
         val api = robot ?: return
+
         api.perform(
             SetTrackVelocityCommand(
                 api.actuator,
@@ -57,119 +62,155 @@ class BallSeekProgram : RobotProgram {
     }
 
     /**
-     * Phase 1: Reset and do a clean 360 scan
+     * Discovery mode.
+     * Continuously rotate left looking for the ball.
      */
     private fun beginSearching() {
+
         state = State.SEARCHING
-        spinTicks = 0
-        drive(spinSpeed, -spinSpeed)
+        searchTicks = 0
+
+        drive(
+            searchSpinSpeed,
+            -searchSpinSpeed
+        )
     }
 
     /**
-     * Phase 2a: Spin a random amount before charging forward
-     */
-    private fun beginExploreSpin() {
-        state = State.EXPLORE_SPIN
-        spinTicks = 0
-        // Randomize how long it spins (e.g., anywhere up to a full 360 degree spin)
-        currentExploreSpinLimit = Random.nextInt(50, maxSpinTicks)
-
-        // Randomly pick clockwise or counter-clockwise
-        val direction = if (Random.nextBoolean()) 1.0 else -1.0
-        drive(spinSpeed * direction, -spinSpeed * direction)
-    }
-
-    /**
-     * Phase 2b: Move forward until collision or 2 seconds pass
+     * Move through the world looking for new viewpoints.
      */
     private fun beginExploring() {
+
         state = State.EXPLORING
-        exploreTicks = 0
-        drive(exploreSpeed, exploreSpeed)
+
+        drive(
+            exploreSpeed,
+            exploreSpeed
+        )
     }
 
     /**
-     * Vision sensor handling logic
+     * Ball spotted.
      */
-    private val visionObserver = Observer<Color> { color ->
-        if (state == State.STOPPED) return@Observer
+    private fun beginApproaching() {
 
-        // ALWAYS interrupt any search/explore behavior if the ball is spotted
+        state = State.APPROACHING
+
+        drive(
+            approachSpeed,
+            approachSpeed
+        )
+    }
+
+    private val visionObserver = Observer<Color> { color ->
+
+        if (state == State.STOPPED) {
+            return@Observer
+        }
+
         if (isRed(color)) {
-            state = State.APPROACHING
-            drive(approachSpeed, approachSpeed)
+
+            if (state != State.APPROACHING) {
+                beginApproaching()
+            }
+
             return@Observer
         }
 
         when (state) {
-            State.SEARCHING -> {
-                spinTicks++
-                // If a full 360 is finished and nothing was seen, go to step 2 (random spin & move)
-                if (spinTicks >= maxSpinTicks) {
-                    beginExploreSpin()
-                }
-            }
 
-            State.EXPLORE_SPIN -> {
-                spinTicks++
-                if (spinTicks >= currentExploreSpinLimit) {
+            State.SEARCHING -> {
+
+                searchTicks++
+
+                // After scanning for a while,
+                // move somewhere new.
+                if (searchTicks >= maxSearchTicks) {
                     beginExploring()
                 }
             }
 
-            State.EXPLORING -> {
-                exploreTicks++
-                // 2 seconds have passed without finding anything -> Repeat the full 360 search
-                if (exploreTicks >= maxExploreTicks) {
-                    beginSearching()
-                }
-            }
-
             State.APPROACHING -> {
-                // Keep moving toward it. If it loses visual track, you could optionally 
-                // revert to beginSearching() here if desired.
+                // Lost visual contact with the ball.
+                beginSearching()
             }
 
-            State.STOPPED -> {}
+            else -> {}
         }
     }
 
     /**
-     * Collision sensor handling logic
+     * Sonar is only used as an immediate obstacle detector.
+     * We no longer wait for sonar to clear.
      */
-    private val collisionObserver = Observer<Boolean> { collided ->
-        if (!collided) return@Observer
+    private val sonarObserver = Observer<Double> { distance ->
 
-        when (state) {
-            State.APPROACHING -> {
-                // Hit the ball successfully!
-                state = State.STOPPED
-                drive(0.0, 0.0)
-            }
+        if (state == State.STOPPED) {
+            return@Observer
+        }
 
-            State.EXPLORING -> {
-                // Hit something while exploring -> immediately drop everything and repeat search
-                beginSearching()
-            }
+        if (state == State.APPROACHING) {
+            return@Observer
+        }
 
-            else -> {
-                // If a collision happens during a spin setup, safely reset to full search
-                beginSearching()
-            }
+        if (distance <= blockedDistance) {
+
+            beginSearching()
         }
     }
 
+    private val collisionObserver = Observer<Boolean> { collided ->
+
+        if (!collided) {
+            return@Observer
+        }
+
+
+        // Hit a wall or obstacle.
+        // Restart discovery.
+        beginSearching()
+
+
+    }
+
     override fun startProgram(robot: RobotApi) {
+
         this.robot = robot
-        robot.sensors.vision.subscribe(visionObserver)
-        robot.sensors.collision.subscribe(collisionObserver)
+
+        robot.sensors.vision.subscribe(
+            visionObserver
+        )
+
+        robot.sensors.sonar.subscribe(
+            sonarObserver
+        )
+
+        robot.sensors.collision.subscribe(
+            collisionObserver
+        )
+
         beginSearching()
     }
 
     override fun stopProgram(robot: RobotApi) {
-        robot.sensors.vision.unsubscribe(visionObserver)
-        robot.sensors.collision.unsubscribe(collisionObserver)
-        drive(0.0, 0.0)
+
+        robot.sensors.vision.unsubscribe(
+            visionObserver
+        )
+
+        robot.sensors.sonar.unsubscribe(
+            sonarObserver
+        )
+
+        robot.sensors.collision.unsubscribe(
+            collisionObserver
+        )
+
+        drive(
+            0.0,
+            0.0
+        )
+
         this.robot = null
     }
 }

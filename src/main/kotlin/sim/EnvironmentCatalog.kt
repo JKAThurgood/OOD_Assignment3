@@ -8,8 +8,8 @@ import environment.TemperatureGradientEnvironment
 /** The set of worlds offered in the environment dropdown. */
 object EnvironmentCatalog {
     fun all(): List<Environment> = listOf(
+        TemperatureGradientEnvironment(),
         ObstacleCourseEnvironment(),
         LineMazeEnvironment(),
-        TemperatureGradientEnvironment(),
     )
 }
