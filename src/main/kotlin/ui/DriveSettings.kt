@@ -9,7 +9,7 @@ data class DriveConfig(
 
 class DriveSettings(
     speed: Double = 120.0,
-    turn: Double = 90.0
+    turn: Double = 50.0
 ) : AbstractSubject<DriveConfig>() {
 
     var speed: Double = speed

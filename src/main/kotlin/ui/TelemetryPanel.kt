@@ -4,14 +4,9 @@ import javafx.geometry.Insets
 import javafx.scene.control.Label
 import javafx.scene.layout.VBox
 import model.Robot
-import observer.Observer
-import javafx.scene.paint.Color
 
 /**
- * A live readout of the sensor values — the *consumer* side of the Observer pattern.
- *
- * The layout (labels) is provided. Making it live is your job: in [bindTo] you subscribe an
- * observer to each sensor so the matching label updates when the sensor reports a reading.
+ * A live readout of the sensor values — the consumer side of the Observer pattern.
  */
 class TelemetryPanel : VBox(6.0) {
 
@@ -22,10 +17,15 @@ class TelemetryPanel : VBox(6.0) {
     private val line = valueLabel()
     private val collision = valueLabel()
 
+    private var lineLeft = false
+    private var lineCenter = false
+    private var lineRight = false
+
     init {
         padding = Insets(12.0)
         prefWidth = 210.0
         style = "-fx-background-color: #14171c;"
+
         children.addAll(
             title,
             captioned("Sonar (distance)", sonar),
@@ -36,24 +36,58 @@ class TelemetryPanel : VBox(6.0) {
         )
     }
 
-    /**
-     * Subscribe observers to the given robot's sensors so the labels update live. Called whenever
-     * the robot is (re)created — on startup, environment change, and reset.
-     */
     fun bindTo(robot: Robot) {
-        robot.sonar.subscribe { value -> sonar.text = "%.2f".format(value) }
 
-        robot.temperature.subscribe { value -> temperature.text = "%.2f".format(value) }
+        robot.sonar.subscribe { value ->
+            sonar.text = "%.2f".format(value)
+        }
 
-        robot.vision.subscribe { value -> vision.text = value.toString() }
+        robot.temperature.subscribe { value ->
+            temperature.text = "%.2f".format(value)
+        }
 
-        robot.collision.subscribe { value -> collision.text = value.toString() }
+        robot.vision.subscribe { value ->
+            vision.text = value.toString()
+        }
+
+        robot.collision.subscribe { value ->
+            collision.text = value.toString()
+        }
+
+
+        robot.lineLeft.subscribe { value ->
+            lineLeft = value
+            updateLineDisplay()
+        }
+
+        robot.lineCenter.subscribe { value ->
+            lineCenter = value
+            updateLineDisplay()
+        }
+
+        robot.lineRight.subscribe { value ->
+            lineRight = value
+            updateLineDisplay()
+        }
     }
+
+
+    private fun updateLineDisplay() {
+        val left = if (lineLeft) "L" else "-"
+        val center = if (lineCenter) "C" else "-"
+        val right = if (lineRight) "R" else "-"
+
+        line.text = "$left / $center / $right"
+    }
+
 
     private fun captioned(caption: String, value: Label): VBox =
         VBox(2.0, styledLabel(caption, 11.0, color = "#8b949e"), value)
 
-    private fun valueLabel() = styledLabel("—", 18.0, bold = true)
+
+    private fun valueLabel() =
+        styledLabel("—", 18.0, bold = true)
+
 
     private fun styledLabel(
         text: String,
