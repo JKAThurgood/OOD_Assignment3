@@ -226,6 +226,10 @@ package model {
         +leftTrackVelocity : Double
         +rightTrackVelocity : Double
 
+        +setTrackVelocities(left,right)
+        +subscribeLeftVelocity(observer)
+        +subscribeRightVelocity(observer)
+
         +step(dt, env)
         +updateSensors(env)
         +stop()
@@ -234,6 +238,8 @@ package model {
     Robot ..|> RobotActuator
     Robot ..|> RobotSensors
 
+    Robot *-- AbstractSubject : left velocity
+    Robot *-- AbstractSubject : right velocity
 
     Robot *-- SonarSensor
     Robot *-- VisionSensor
@@ -286,6 +292,9 @@ package ui {
 
         -collisionObserver : Observer<Boolean>
 
+        -leftSpeed : Label
+        -rightSpeed : Label
+
         +bindTo(robot : Robot)
 
         +connect()
@@ -300,6 +309,8 @@ package ui {
 
     TelemetryPanel ..> RobotSensors
     TelemetryPanel ..> Observer
+    TelemetryPanel ..> Robot
+    Robot --> TelemetryPanel : velocity updates
 }
 
 

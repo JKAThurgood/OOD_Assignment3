@@ -14,6 +14,16 @@ class LineFollowerProgram : RobotProgram {
     private var centerOnLine = false
     private var rightOnLine = false
 
+    private enum class State {
+        FOLLOWING,
+        RECOVERING
+    }
+
+    private var state = State.FOLLOWING
+
+    private val forwardSpeed = 80.0
+    private val turnSpeed = 65.0
+
     private val leftObserver = Observer<Boolean> { value ->
         leftOnLine = value
         updateMovement()
@@ -37,6 +47,7 @@ class LineFollowerProgram : RobotProgram {
         robot.sensors.lineRight.subscribe(rightObserver)
     }
 
+
     override fun stopProgram(robot: RobotApi) {
         robot.sensors.lineLeft.unsubscribe(leftObserver)
         robot.sensors.lineCenter.unsubscribe(centerObserver)
@@ -53,26 +64,112 @@ class LineFollowerProgram : RobotProgram {
         this.robot = null
     }
 
+
     private fun updateMovement() {
         val api = robot ?: return
+        val activeSensors =
+            listOf(
+                leftOnLine,
+                centerOnLine,
+                rightOnLine
+            ).count { it }
 
-        val (left, right) = when {
-            centerOnLine -> {
-                120.0 to 120.0
+
+        when (activeSensors) {
+
+            // All sensors see the line
+            3 -> {
+                state = State.FOLLOWING
+
+                drive(
+                    forwardSpeed,
+                    forwardSpeed
+                )
             }
 
-            leftOnLine -> {
-                60.0 to 120.0
+
+            // Two sensors see the line.
+            // Make a small correction but keep moving.
+            2 -> {
+                state = State.FOLLOWING
+
+                when {
+                    !leftOnLine -> {
+                        // Line is drifting left, steer left
+                        drive(
+                            forwardSpeed,
+                            forwardSpeed + turnSpeed
+                        )
+                    }
+
+                    !rightOnLine -> {
+                        // Line is drifting right, steer right
+                        drive(
+                            forwardSpeed + turnSpeed,
+                            forwardSpeed
+                        )
+                    }
+
+                    !centerOnLine -> {
+                        // Center lost, but edges still know where the line is.
+                        drive(
+                            -forwardSpeed,
+                            -forwardSpeed
+                        )
+                    }
+                }
             }
 
-            rightOnLine -> {
-                120.0 to 60.0
+
+            // Only one sensor sees the line.
+            // Slow recovery turn.
+            1 -> {
+                state = State.RECOVERING
+
+                when {
+
+                    leftOnLine -> {
+                        // Pivot left until center returns
+                        drive(
+                            turnSpeed,
+                            0.0
+                        )
+                    }
+
+                    rightOnLine -> {
+                        // Pivot right until center returns
+                        drive(
+                            0.0,
+                            turnSpeed
+                        )
+                    }
+
+                    centerOnLine -> {
+                        // Move forward slowly
+                        drive(
+                            -forwardSpeed / 2,
+                            -forwardSpeed / 2
+                        )
+                    }
+                }
             }
 
-            else -> {
-                80.0 to 80.0
+
+            // Completely lost.
+            // Stop and spin slowly to reacquire.
+            0 -> {
+                state = State.RECOVERING
+
+                drive(
+                    -turnSpeed,
+                    turnSpeed
+                )
             }
         }
+    }
+
+    private fun drive(left: Double, right: Double) {
+        val api = robot ?: return
 
         api.perform(
             SetTrackVelocityCommand(

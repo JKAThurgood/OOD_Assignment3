@@ -4,6 +4,8 @@ import command.RobotActuator
 import environment.Environment
 import geometry.Pose
 import geometry.Vector2
+import observer.AbstractSubject
+import observer.Observer
 import sensor.CollisionSensor
 import sensor.LineSensor
 import sensor.RobotSensors
@@ -19,7 +21,8 @@ import kotlin.math.sin
  * (via [RobotActuator]) and owns the sensor suite (each sensor is an Observer Subject,
  * exposed through [RobotSensors]).
  *
- * Modeled as a disc of [radius]; the two tracks are [trackWidth] apart.
+ * Track velocities are also observable so UI components and programs can react to
+ * actuator changes without polling.
  */
 class Robot(
     startPose: Pose,
@@ -33,58 +36,190 @@ class Robot(
 
     override var leftTrackVelocity: Double = 0.0
         private set
+
     override var rightTrackVelocity: Double = 0.0
         private set
+
+
+    /*
+     * Observable track velocity streams.
+     * Any command that changes velocity automatically notifies subscribers.
+     */
+    private val leftVelocitySubject = object : AbstractSubject<Double>() {}
+    private val rightVelocitySubject = object : AbstractSubject<Double>() {}
+
 
     /** True when the last [step] had its translation blocked by an obstacle or wall. */
     var isColliding: Boolean = false
         private set
 
-    // Standard sensor suite. Line sensors are spread across the front for line-following.
-    override val sonar = SonarSensor(mountForward = radius, maxRange = 320.0)
-    override val vision = VisionSensor(mountForward = radius)
-    override val temperature = TemperatureSensor(mountForward = 0.0)
-    override val lineLeft = LineSensor(mountForward = radius, mountLateral = 8.0)
-    override val lineCenter = LineSensor(mountForward = radius, mountLateral = 0.0)
-    override val lineRight = LineSensor(mountForward = radius, mountLateral = -8.0)
-    override val collision = CollisionSensor { isColliding }
 
-    val sensors: List<Sensor<*>> =
-        listOf(sonar, vision, temperature, lineLeft, lineCenter, lineRight, collision)
+    // Standard sensor suite.
+    override val sonar = SonarSensor(
+        mountForward = radius,
+        maxRange = 320.0
+    )
 
-    override fun setTrackVelocities(left: Double, right: Double) {
-        leftTrackVelocity = left.coerceIn(-maxTrackSpeed, maxTrackSpeed)
-        rightTrackVelocity = right.coerceIn(-maxTrackSpeed, maxTrackSpeed)
+    override val vision = VisionSensor(
+        mountForward = radius
+    )
+
+    override val temperature = TemperatureSensor(
+        mountForward = 0.0
+    )
+
+    override val lineLeft = LineSensor(
+        mountForward = radius,
+        mountLateral = 8.0
+    )
+
+    override val lineCenter = LineSensor(
+        mountForward = radius,
+        mountLateral = 0.0
+    )
+
+    override val lineRight = LineSensor(
+        mountForward = radius,
+        mountLateral = -8.0
+    )
+
+    override val collision = CollisionSensor {
+        isColliding
     }
 
-    fun stop() = setTrackVelocities(0.0, 0.0)
 
-    /** Advance the robot [dt] seconds using skid-steer kinematics, then re-read the sensors. */
-    fun step(dt: Double, env: Environment) {
-        val v = (leftTrackVelocity + rightTrackVelocity) / 2.0
-        val omega = (rightTrackVelocity - leftTrackVelocity) / trackWidth
-
-        val newHeading = pose.heading + omega * dt
-        val candidate = Vector2(
-            pose.x + v * cos(pose.heading) * dt,
-            pose.y + v * sin(pose.heading) * dt,
+    val sensors: List<Sensor<*>> =
+        listOf(
+            sonar,
+            vision,
+            temperature,
+            lineLeft,
+            lineCenter,
+            lineRight,
+            collision
         )
 
-        // Rotation always applies; translation is rejected if it would collide.
-        isColliding = collides(candidate, env)
-        val nextPos = if (isColliding) pose.position else candidate
-        pose = Pose(nextPos.x, nextPos.y, newHeading)
+
+    /**
+     * Change robot track velocities.
+     *
+     * This is the Command receiver method. Whenever it runs,
+     * observers are notified.
+     */
+    override fun setTrackVelocities(left: Double, right: Double) {
+
+        leftTrackVelocity =
+            left.coerceIn(-maxTrackSpeed, maxTrackSpeed)
+
+        rightTrackVelocity =
+            right.coerceIn(-maxTrackSpeed, maxTrackSpeed)
+
+
+        leftVelocitySubject.notifyObservers(leftTrackVelocity)
+        rightVelocitySubject.notifyObservers(rightTrackVelocity)
+    }
+
+
+    fun stop() =
+        setTrackVelocities(0.0, 0.0)
+
+
+    /*
+     * Velocity observers
+     */
+    fun subscribeLeftVelocity(observer: Observer<Double>) {
+        leftVelocitySubject.subscribe(observer)
+    }
+
+    fun unsubscribeLeftVelocity(observer: Observer<Double>) {
+        leftVelocitySubject.unsubscribe(observer)
+    }
+
+
+    fun subscribeRightVelocity(observer: Observer<Double>) {
+        rightVelocitySubject.subscribe(observer)
+    }
+
+    fun unsubscribeRightVelocity(observer: Observer<Double>) {
+        rightVelocitySubject.unsubscribe(observer)
+    }
+
+
+    /** Advance the robot using skid-steer kinematics. */
+    fun step(dt: Double, env: Environment) {
+
+        val v =
+            (leftTrackVelocity + rightTrackVelocity) / 2.0
+
+        val omega =
+            (rightTrackVelocity - leftTrackVelocity) / trackWidth
+
+
+        val newHeading =
+            pose.heading + omega * dt
+
+
+        val candidate =
+            Vector2(
+                pose.x + v * cos(pose.heading) * dt,
+                pose.y + v * sin(pose.heading) * dt
+            )
+
+
+        // Rotation always applies.
+        // Translation is rejected if blocked.
+        isColliding =
+            collides(candidate, env)
+
+
+        val nextPos =
+            if (isColliding)
+                pose.position
+            else
+                candidate
+
+
+        pose =
+            Pose(
+                nextPos.x,
+                nextPos.y,
+                newHeading
+            )
+
 
         updateSensors(env)
     }
 
-    fun updateSensors(env: Environment) = sensors.forEach { it.update(env, pose) }
 
-    private fun collides(center: Vector2, env: Environment): Boolean {
+    fun updateSensors(env: Environment) {
+        sensors.forEach {
+            it.update(env, pose)
+        }
+    }
+
+
+    private fun collides(
+        center: Vector2,
+        env: Environment
+    ): Boolean {
+
         val b = env.bounds
-        val outOfBounds = center.x - radius < b.minX || center.x + radius > b.maxX ||
-            center.y - radius < b.minY || center.y + radius > b.maxY
-        if (outOfBounds) return true
-        return env.obstacles.any { it.bounds.intersectsCircle(center, radius) }
+
+
+        val outOfBounds =
+            center.x - radius < b.minX ||
+                    center.x + radius > b.maxX ||
+                    center.y - radius < b.minY ||
+                    center.y + radius > b.maxY
+
+
+        if (outOfBounds) {
+            return true
+        }
+
+
+        return env.obstacles.any {
+            it.bounds.intersectsCircle(center, radius)
+        }
     }
 }
