@@ -8,7 +8,7 @@ data class DriveConfig(
 )
 
 class DriveSettings(
-    speed: Double = 120.0,
+    speed: Double = 80.0,
     turn: Double = 50.0
 ) : AbstractSubject<DriveConfig>() {
 
