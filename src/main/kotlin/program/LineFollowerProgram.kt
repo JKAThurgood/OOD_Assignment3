@@ -19,6 +19,23 @@ class LineFollowerProgram : RobotProgram {
         RECOVERING
     }
 
+    private var lastLeft = Double.NaN
+    private var lastRight = Double.NaN
+
+    private fun drive(left: Double, right: Double) {
+        if (left == lastLeft && right == lastRight) {
+            return
+        }
+
+        lastLeft = left
+        lastRight = right
+
+        robot?.drive(
+            left,
+            right
+        )
+    }
+
     private var state = State.FOLLOWING
 
     private val forwardSpeed = 80.0
@@ -53,13 +70,7 @@ class LineFollowerProgram : RobotProgram {
         robot.sensors.lineCenter.unsubscribe(centerObserver)
         robot.sensors.lineRight.unsubscribe(rightObserver)
 
-        robot.perform(
-            SetTrackVelocityCommand(
-                robot.actuator,
-                0.0,
-                0.0
-            )
-        )
+        drive(0.0, 0.0)
 
         this.robot = null
     }
@@ -166,17 +177,5 @@ class LineFollowerProgram : RobotProgram {
                 )
             }
         }
-    }
-
-    private fun drive(left: Double, right: Double) {
-        val api = robot ?: return
-
-        api.perform(
-            SetTrackVelocityCommand(
-                api.actuator,
-                left,
-                right
-            )
-        )
     }
 }

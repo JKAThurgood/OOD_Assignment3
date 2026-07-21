@@ -13,11 +13,16 @@ import sensor.RobotSensors
  * Both the manual control panel and a [RobotProgram] are clients of this one interface.
  */
 interface RobotApi {
+
     val sensors: RobotSensors
     val actuator: RobotActuator
 
     fun perform(command: Command)
     fun perform(commands: List<Command>)
+
     fun undo()
     fun redo()
+
+    fun stop()
+    fun drive(left: Double, right: Double)
 }

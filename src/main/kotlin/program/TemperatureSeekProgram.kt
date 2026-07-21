@@ -29,9 +29,21 @@ class TemperatureSeekProgram : RobotProgram {
     private val reverseSpeed = -50.0
     private val turnSpeed = 95.0
 
+    private var lastLeft = Double.NaN
+    private var lastRight = Double.NaN
+
     private fun drive(left: Double, right: Double) {
-        val api = robot ?: return
-        api.perform(SetTrackVelocityCommand(api.actuator, left, right))
+        if (left == lastLeft && right == lastRight) {
+            return
+        }
+
+        lastLeft = left
+        lastRight = right
+
+        robot?.drive(
+            left,
+            right
+        )
     }
 
     private val sonarObserver = Observer<Double> { distance ->

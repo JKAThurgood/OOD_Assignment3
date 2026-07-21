@@ -1,4 +1,6 @@
 @startuml
+scale max 4000 width
+
 skinparam packageStyle rectangle
 
 package observer {
@@ -18,7 +20,6 @@ package observer {
     Subject <|.. AbstractSubject
     AbstractSubject "1" o-- "*" Observer : notifies
 }
-
 
 package sensor {
 
@@ -62,7 +63,6 @@ package sensor {
     Sensor <|-- CollisionSensor
 }
 
-
 package command {
 
     interface Command {
@@ -83,6 +83,9 @@ package command {
         +run(command)
         +undo()
         +redo()
+
+        +canUndo() : Boolean
+        +canRedo() : Boolean
     }
 
     class SetTrackVelocityCommand {
@@ -96,14 +99,25 @@ package command {
         +undo()
     }
 
+    class RobotCommandFactory {
+        +stop(actuator) : Command
+        +forward(actuator,speed) : Command
+        +reverse(actuator,speed) : Command
+        +turnLeft(actuator,speed) : Command
+        +turnRight(actuator,speed) : Command
+        +setTracks(actuator,left,right) : Command
+    }
+
     CommandInvoker --> Command : executes
 
     Command ..> RobotActuator : receiver
 
     Command <|.. SetTrackVelocityCommand
     SetTrackVelocityCommand --> RobotActuator
-}
 
+    RobotCommandFactory ..> SetTrackVelocityCommand : creates
+    RobotCommandFactory ..> RobotActuator
+}
 
 package api {
 
@@ -111,12 +125,21 @@ package api {
         +sensors : RobotSensors
         +actuator : RobotActuator
 
+        +stop()
+        +forward(speed)
+        +reverse(speed)
+        +turnLeft(speed)
+        +turnRight(speed)
+        +setTracks(left,right)
+
         +perform(command)
         +undo()
         +redo()
     }
 
-    class DefaultRobotApi
+    class DefaultRobotApi {
+        -factory : RobotCommandFactory
+    }
 
     interface ProgramRegistry {
         +register(program)
@@ -134,6 +157,7 @@ package api {
     DefaultRobotApi --> CommandInvoker
     DefaultRobotApi --> RobotActuator
     DefaultRobotApi --> RobotSensors
+    DefaultRobotApi --> RobotCommandFactory
 
     ProgramRegistry --> program.RobotProgram
 
@@ -143,7 +167,6 @@ package api {
     StudentPrograms ..> program.RobotProgram
 }
 
-
 package program {
 
     interface RobotProgram {
@@ -152,7 +175,6 @@ package program {
         +startProgram(robot : api.RobotApi)
         +stopProgram(robot : api.RobotApi)
     }
-
 
     class LineFollowerProgram {
 
@@ -168,25 +190,11 @@ package program {
         +stopProgram(robot : api.RobotApi)
     }
 
-
     class TemperatureSeekProgram {
 
         -robot : api.RobotApi
 
         -temperatureObserver : observer.Observer<Double>
-
-        +name : String
-
-        +startProgram(robot : api.RobotApi)
-        +stopProgram(robot : api.RobotApi)
-    }
-
-
-    class BallSeekProgram {
-
-        -robot : api.RobotApi
-
-        -visionObserver : observer.Observer<Color>
         -collisionObserver : observer.Observer<Boolean>
 
         +name : String
@@ -195,27 +203,32 @@ package program {
         +stopProgram(robot : api.RobotApi)
     }
 
+    class BallSeekProgram {
+
+        -robot : api.RobotApi
+
+        -visionObserver : observer.Observer<Color>
+        -sonarObserver : observer.Observer<Double>
+        -collisionObserver : observer.Observer<Boolean>
+
+        +name : String
+
+        +startProgram(robot : api.RobotApi)
+        +stopProgram(robot : api.RobotApi)
+    }
 
     RobotProgram <|.. LineFollowerProgram
     RobotProgram <|.. TemperatureSeekProgram
     RobotProgram <|.. BallSeekProgram
 
-
-    LineFollowerProgram ..> api.RobotApi : controls through
-    TemperatureSeekProgram ..> api.RobotApi : controls through
-    BallSeekProgram ..> api.RobotApi : controls through
-
+    LineFollowerProgram ..> api.RobotApi : issues actions
+    TemperatureSeekProgram ..> api.RobotApi : issues actions
+    BallSeekProgram ..> api.RobotApi : issues actions
 
     LineFollowerProgram ..> observer.Observer : subscribes
     TemperatureSeekProgram ..> observer.Observer : subscribes
     BallSeekProgram ..> observer.Observer : subscribes
-
-
-    program.LineFollowerProgram ..> command.SetTrackVelocityCommand : creates
-    program.TemperatureSeekProgram ..> command.SetTrackVelocityCommand : creates
-    program.BallSeekProgram ..> command.SetTrackVelocityCommand : creates
 }
-
 
 package model {
 
@@ -227,8 +240,12 @@ package model {
         +rightTrackVelocity : Double
 
         +setTrackVelocities(left,right)
+
         +subscribeLeftVelocity(observer)
+        +unsubscribeLeftVelocity(observer)
+
         +subscribeRightVelocity(observer)
+        +unsubscribeRightVelocity(observer)
 
         +step(dt, env)
         +updateSensors(env)
@@ -252,8 +269,12 @@ package model {
     Robot *-- CollisionSensor
 }
 
-
 package ui {
+
+    class DriveConfig {
+        +speed : Double
+        +turn : Double
+    }
 
     class DriveSettings {
 
@@ -264,7 +285,6 @@ package ui {
         +setTurn(value : Double)
     }
 
-
     class ControlPanel {
 
         -api : RobotApi
@@ -273,12 +293,9 @@ package ui {
         +drive(left,right)
     }
 
-
     class ProgramPanel {
-
         -programRunner : ProgramRunner
     }
-
 
     class TelemetryPanel {
 
@@ -292,17 +309,15 @@ package ui {
 
         -collisionObserver : Observer<Boolean>
 
-        -leftSpeed : Label
-        -rightSpeed : Label
+        -leftVelocityObserver : Observer<Double>
+        -rightVelocityObserver : Observer<Double>
 
         +bindTo(robot : Robot)
-
-        +connect()
         +disconnect()
     }
 
-
     DriveSettings --|> AbstractSubject
+    DriveSettings ..> DriveConfig : publishes
 
     ControlPanel --> RobotApi
     ControlPanel --> DriveSettings
@@ -310,9 +325,9 @@ package ui {
     TelemetryPanel ..> RobotSensors
     TelemetryPanel ..> Observer
     TelemetryPanel ..> Robot
+
     Robot --> TelemetryPanel : velocity updates
 }
-
 
 package sim {
 
@@ -325,19 +340,15 @@ package sim {
         +resetRobot()
     }
 
-
     class ProgramRunner {
 
         +run(program)
         +stop()
     }
 
-
     class EnvironmentCatalog {
-
         +all()
     }
-
 
     ProgramRunner --> RobotProgram
     ProgramRunner --> RobotApi
@@ -345,7 +356,6 @@ package sim {
     Simulation --> Robot
     Simulation --> EnvironmentCatalog
 }
-
 
 package app {
 
@@ -359,12 +369,10 @@ package app {
         +installKeyboardControls(scene)
     }
 
-
     RobotSimulationApp --> Simulation
     RobotSimulationApp --> RobotApi
     RobotSimulationApp --> CommandInvoker
 }
-
 
 Sensor --> Observer : notifies
 

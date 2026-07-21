@@ -115,4 +115,22 @@ class CommandInvokerTest {
 
         assertTrue(invoker.canRedo())
     }
+
+    @Test
+    fun undo_on_empty_history_does_not_throw() {
+        val invoker = CommandInvoker()
+
+        assertDoesNotThrow {
+            invoker.undo()
+        }
+    }
+
+    @Test
+    fun redo_on_empty_history_does_not_throw() {
+        val invoker = CommandInvoker()
+
+        assertDoesNotThrow {
+            invoker.redo()
+        }
+    }
 }

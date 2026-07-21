@@ -13,8 +13,7 @@ import observer.Observer
  * 2. If no ball is found after a short scan, drive forward.
  * 3. If collision occurs or sonar reports an immediate obstacle,
  *    return to discovery mode (searching).
- * 4. If the ball is seen, drive straight toward it.
- * 5. If collision occurs while approaching, assume we reached the ball.
+ * 4. If the ball is seen, drive straight toward it.ssssss
  */
 class BallSeekProgram : RobotProgram {
 
@@ -31,6 +30,11 @@ class BallSeekProgram : RobotProgram {
 
     private var state = State.SEARCHING
 
+    /**
+     * Sensor notifications occur every simulation tick.
+     * We intentionally use vision notifications as our
+     * timing source while searching.
+     */
     private var searchTicks = 0
     private val maxSearchTicks = 300
 
@@ -49,15 +53,19 @@ class BallSeekProgram : RobotProgram {
                 color.blue < 0.4
     }
 
+    private var lastLeft = Double.NaN
+    private var lastRight = Double.NaN
     private fun drive(left: Double, right: Double) {
-        val api = robot ?: return
+        if (left == lastLeft && right == lastRight) {
+            return
+        }
 
-        api.perform(
-            SetTrackVelocityCommand(
-                api.actuator,
-                left,
-                right
-            )
+        lastLeft = left
+        lastRight = right
+
+        robot?.drive(
+            left,
+            right
         )
     }
 

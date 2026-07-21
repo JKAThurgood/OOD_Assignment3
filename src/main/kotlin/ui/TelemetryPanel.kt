@@ -2,6 +2,7 @@ package ui
 
 import javafx.geometry.Insets
 import javafx.scene.control.Label
+import javafx.scene.paint.Color
 import javafx.scene.layout.VBox
 import model.Robot
 import observer.Observer
@@ -15,7 +16,44 @@ import observer.Observer
  * - Robot actuator state pushes velocity updates here.
  */
 class TelemetryPanel : VBox(6.0) {
+    private var currentRobot: Robot? = null
+    private val sonarObserver =
+        Observer<Double> { value ->
+            sonar.text = "%.2f".format(value)
+        }
 
+    private val temperatureObserver =
+        Observer<Double> { value ->
+            temperature.text = "%.1f".format(value)
+        }
+
+    private val visionObserver = Observer<Color> { value ->
+        vision.text = value.toString()
+    }
+
+    private val leftLineObserver = Observer<Boolean> {
+        currentRobot?.let(::updateLine)
+    }
+
+    private val centerLineObserver = Observer<Boolean> {
+        currentRobot?.let(::updateLine)
+    }
+
+    private val rightLineObserver = Observer<Boolean> {
+        currentRobot?.let(::updateLine)
+    }
+
+    private val collisionObserver = Observer<Boolean> { value ->
+        collision.text = value.toString()
+    }
+
+    private val leftTrackObserver = Observer<Double> { value ->
+        leftTrack.text = "%.1f".format(value)
+    }
+
+    private val rightTrackObserver = Observer<Double> { value ->
+        rightTrack.text = "%.1f".format(value)
+    }
 
     private val title =
         styledLabel("Telemetry", 15.0, bold = true)
@@ -104,57 +142,19 @@ class TelemetryPanel : VBox(6.0) {
 
 
     fun bindTo(robot: Robot) {
+        currentRobot = robot
 
+        robot.vision.subscribe(visionObserver)
 
-        robot.sonar.subscribe { value ->
-            sonar.text =
-                "%.2f".format(value)
-        }
+        robot.lineLeft.subscribe(leftLineObserver)
+        robot.lineCenter.subscribe(centerLineObserver)
+        robot.lineRight.subscribe(rightLineObserver)
 
+        robot.collision.subscribe(collisionObserver)
 
-        robot.temperature.subscribe { value ->
-            temperature.text =
-                "%.2f".format(value)
-        }
-
-
-        robot.vision.subscribe { value ->
-            vision.text =
-                value.toString()
-        }
-
-
-        robot.lineLeft.subscribe {
-            updateLine(robot)
-        }
-
-        robot.lineCenter.subscribe {
-            updateLine(robot)
-        }
-
-        robot.lineRight.subscribe {
-            updateLine(robot)
-        }
-
-
-        robot.collision.subscribe { value ->
-            collision.text =
-                value.toString()
-        }
-
-
-        robot.subscribeLeftVelocity { value ->
-            leftTrack.text =
-                "%.1f".format(value)
-        }
-
-
-        robot.subscribeRightVelocity { value ->
-            rightTrack.text =
-                "%.1f".format(value)
-        }
+        robot.subscribeLeftVelocity(leftTrackObserver)
+        robot.subscribeRightVelocity(rightTrackObserver)
     }
-
 
     private fun updateLine(robot: Robot) {
 
@@ -223,4 +223,17 @@ class TelemetryPanel : VBox(6.0) {
                         else
                             ""
         }
+
+    fun unbindFrom(robot: Robot) {
+        robot.vision.unsubscribe(visionObserver)
+
+        robot.lineLeft.unsubscribe(leftLineObserver)
+        robot.lineCenter.unsubscribe(centerLineObserver)
+        robot.lineRight.unsubscribe(rightLineObserver)
+
+        robot.collision.unsubscribe(collisionObserver)
+
+        robot.unsubscribeLeftVelocity(leftTrackObserver)
+        robot.unsubscribeRightVelocity(rightTrackObserver)
+    }
 }

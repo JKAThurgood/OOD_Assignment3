@@ -1,6 +1,7 @@
 package api
 
 import command.Command
+import command.CommandFactory
 import command.CommandInvoker
 import command.RobotActuator
 import sensor.RobotSensors
@@ -24,4 +25,20 @@ class DefaultRobotApi(
     override fun perform(commands: List<Command>) = commands.forEach { invoker.run(it) }
     override fun undo() = invoker.undo()
     override fun redo() = invoker.redo()
+    override fun stop() =
+        perform(
+            CommandFactory.stop(actuator)
+        )
+
+    override fun drive(
+        left: Double,
+        right: Double
+    ) =
+        perform(
+            CommandFactory.setTracks(
+                actuator,
+                left,
+                right
+            )
+        )
 }
