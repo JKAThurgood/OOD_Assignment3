@@ -8,6 +8,12 @@ class TemperatureSeekProgram : RobotProgram {
     override val name = "Temperature Seeker"
     private var robot: RobotApi? = null
 
+    /**
+     * 1. Record current temperature, if it is higher then what we have previously seen, update our best temperature.
+     * 2. Move forward, repeat step 1.
+     * 3. If the temperature drops below out best temperature, pivot left for a short time, then resume moving forward.
+     * 4. If a collision occurs, back up for a short time, then pivot left, move forward for 500 ticks, reset best known temperature, and resume seeking.
+     */
     // Tracks the absolute highest temperature recorded in this run
     private var bestTemperature: Double? = null
 

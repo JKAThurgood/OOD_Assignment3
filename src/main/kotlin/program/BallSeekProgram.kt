@@ -12,7 +12,8 @@ import observer.Observer
  * 2. If no ball is found after a short scan, drive forward.
  * 3. If collision occurs or sonar reports an immediate obstacle,
  *    return to discovery mode (searching).
- * 4. If the ball is seen, drive straight toward it.ssssss
+ * 4. If the ball is seen, drive straight toward it.
+ * Note: Because this is randomly selecting a heading, it may not find the ball in a reasonable time.
  */
 class BallSeekProgram : RobotProgram {
 

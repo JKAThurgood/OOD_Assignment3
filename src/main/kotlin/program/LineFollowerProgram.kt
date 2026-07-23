@@ -5,6 +5,18 @@ import observer.Observer
 
 class LineFollowerProgram : RobotProgram {
 
+
+    /**
+     * Follows Line Based on the line sensors.
+     *
+     * Behavior:
+     * 1. Assuming we start on the line, drive forward
+     * 2. If a sensor goes offline follow this logic.
+     *  a. If two sensors are still on the line, make a small correction to steer back to the line.
+     *  b. If only one sensor is on the line, make a slow turn to reacquire the line.
+     *  c. If no sensors are on the line, stop and reverse until a sensor reacquires the line, then resume b.
+     * 3. At the end of the line, the robot will lose all 3 sensors at once and will back up and move forward in small increments at the end of the line.
+     */
     override val name = "Line Follower"
 
     private var robot: RobotApi? = null
