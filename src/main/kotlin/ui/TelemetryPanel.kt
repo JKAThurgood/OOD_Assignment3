@@ -141,21 +141,6 @@ class TelemetryPanel : VBox(6.0) {
     }
 
 
-    fun bindTo(robot: Robot) {
-        currentRobot = robot
-
-        robot.vision.subscribe(visionObserver)
-
-        robot.lineLeft.subscribe(leftLineObserver)
-        robot.lineCenter.subscribe(centerLineObserver)
-        robot.lineRight.subscribe(rightLineObserver)
-
-        robot.collision.subscribe(collisionObserver)
-
-        robot.subscribeLeftVelocity(leftTrackObserver)
-        robot.subscribeRightVelocity(rightTrackObserver)
-    }
-
     private fun updateLine(robot: Robot) {
 
         val left =
@@ -224,7 +209,28 @@ class TelemetryPanel : VBox(6.0) {
                             ""
         }
 
+    fun bindTo(robot: Robot) {
+        currentRobot = robot
+
+        robot.sonar.subscribe(sonarObserver)
+        robot.temperature.subscribe(temperatureObserver)
+
+        robot.vision.subscribe(visionObserver)
+
+        robot.lineLeft.subscribe(leftLineObserver)
+        robot.lineCenter.subscribe(centerLineObserver)
+        robot.lineRight.subscribe(rightLineObserver)
+
+        robot.collision.subscribe(collisionObserver)
+
+        robot.subscribeLeftVelocity(leftTrackObserver)
+        robot.subscribeRightVelocity(rightTrackObserver)
+    }
+
     fun unbindFrom(robot: Robot) {
+        robot.sonar.unsubscribe(sonarObserver)
+        robot.temperature.unsubscribe(temperatureObserver)
+
         robot.vision.unsubscribe(visionObserver)
 
         robot.lineLeft.unsubscribe(leftLineObserver)

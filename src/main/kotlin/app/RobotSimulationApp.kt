@@ -4,7 +4,6 @@ import api.DefaultProgramRegistry
 import api.DefaultRobotApi
 import api.StudentPrograms
 import command.CommandInvoker
-import command.SetTrackVelocityCommand
 import javafx.animation.AnimationTimer
 import javafx.application.Application
 import javafx.scene.Scene
@@ -142,12 +141,9 @@ class RobotSimulationApp : Application() {
     }
 
     private fun drive(left: Double, right: Double) {
-        api.perform(
-            SetTrackVelocityCommand(
-                api.actuator,
-                left,
-                right
-            )
+        api.drive(
+            left,
+            right
         )
     }
 

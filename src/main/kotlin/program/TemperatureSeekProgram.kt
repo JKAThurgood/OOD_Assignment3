@@ -1,7 +1,6 @@
 package program
 
 import api.RobotApi
-import command.SetTrackVelocityCommand
 import observer.Observer
 
 class TemperatureSeekProgram : RobotProgram {

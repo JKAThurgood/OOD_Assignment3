@@ -1,7 +1,6 @@
 package program
 
 import api.RobotApi
-import command.SetTrackVelocityCommand
 import javafx.scene.paint.Color
 import observer.Observer
 
